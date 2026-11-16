@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<title>Knee Check</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #181b22; --panel2: #20242d; --line: #2c313c;
+    --text: #eef1f6; --muted: #8e97a8; --accent: #ff6a1a; --accent2: #ffb35c;
+    --good: #3ecf8e; --bad: #ff5a5f; --warn: #f5c542;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body { padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); }
+  button, select { font: inherit; color: inherit; border: 0; cursor: pointer; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 12px 16px 24px; display: flex; flex-direction: column; gap: 12px; }
+  header { display: flex; align-items: center; gap: 10px; }
+  header h1 { font-size: 18px; margin: 0; flex: 1; }
+  header a { color: var(--accent2); text-decoration: none; font-size: 14px; }
+  .btn { background: var(--panel2); padding: 10px 14px; border-radius: 12px; font-weight: 600; }
+  .btn.primary { background: var(--accent); color: #fff; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .row > .btn, .row > label.btn { flex: 1; text-align: center; }
+  .stage { position: relative; background: #000; border-radius: 16px; overflow: hidden; aspect-ratio: 4 / 3; }
+  .stage video, .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+  .stage .msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center;
+    padding: 24px; color: var(--muted); font-size: 15px; }
+  .live { position: absolute; left: 10px; top: 10px; background: rgba(0,0,0,.6); padding: 6px 10px; border-radius: 10px;
+    font-weight: 700; font-variant-numeric: tabular-nums; }
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .m { background: var(--panel); border-radius: 14px; padding: 10px 6px; text-align: center; }
+  .m b { display: block; font-size: 26px; font-variant-numeric: tabular-nums; line-height: 1.15; }
+  .m span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .verdict { border-radius: 16px; padding: 14px 16px; background: var(--panel); border-left: 6px solid var(--line); }
+  .verdict h2 { margin: 0 0 4px; font-size: 18px; }
+  .verdict p { margin: 0; color: var(--muted); font-size: 14px; }
+  .verdict.good { border-color: var(--good); } .verdict.good h2 { color: var(--good); }
+  .verdict.high, .verdict.low { border-color: var(--warn); } .verdict.high h2, .verdict.low h2 { color: var(--warn); }
+  .seg { display: flex; background: var(--panel2); border-radius: 10px; padding: 3px; }
+  .seg button { flex: 1; padding: 7px 10px; border-radius: 8px; background: transparent; color: var(--muted); font-weight: 600; font-size: 14px; }
+  .seg button.on { background: var(--bg); color: var(--text); }
+  details { background: var(--panel); border-radius: 16px; padding: 4px 14px; }
+  summary { padding: 10px 0; cursor: pointer; font-weight: 600; color: var(--muted); }
+  details ol, details ul { margin: 0 0 12px; padding-left: 20px; color: var(--muted); font-size: 14px; }
+  details li { margin: 4px 0; }
+  details li b { color: var(--text); }
+  input[type=file] { display: none; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Knee Check</h1>
+    <a href="./">← Virtual Cog</a>
+  </header>
+
+  <div class="stage" id="stage">
+    <video id="video" playsinline muted></video>
+    <canvas id="canvas"></canvas>
+    <div class="msg" id="msg">Prop the phone level with your hips, side-on to the bike, about 2–3 m away, then tap <b>&nbsp;Start camera</b>.</div>
+    <div class="live" id="live" hidden>– °</div>
+  </div>
+
+  <div class="row">
+    <button id="cam" class="btn primary">Start camera</button>
+    <button id="flip" class="btn">Flip camera</button>
+    <label class="btn" for="file">Analyse video</label>
+    <input id="file" type="file" accept="video/*">
+  </div>
+
+  <div class="seg" role="group" aria-label="Leg">
+    <button data-side="auto" class="on">Auto leg</button>
+    <button data-side="left">Left leg</button>
+    <button data-side="right">Right leg</button>
+  </div>
+
+  <section class="cards">
+    <div class="m"><b id="ext">–</b><span>Knee bend at bottom</span></div>
+    <div class="m"><b id="flex">–</b><span>Knee bend at top</span></div>
+    <div class="m"><b id="hip">–</b><span>Hip angle at top</span></div>
+    <div class="m"><b id="strokes">0</b><span>Strokes</span></div>
+    <div class="m"><b id="rpm">–</b><span>Cadence</span></div>
+    <div class="m"><b id="side">–</b><span>Leg used</span></div>
+  </section>
+
+  <section class="verdict" id="verdict">
+    <h2>Waiting for pedal strokes</h2>
+    <p>Pedal at a steady 80–90 rpm with moderate effort. You'll get a result after about 6 strokes.</p>
+  </section>
+
+  <div class="row"><button id="reset" class="btn">Reset measurements</button></div>
+
+  <details>
+    <summary>How to get an accurate reading</summary>
+    <ol>
+      <li><b>Camera side-on:</b> exactly at 90° to the bike, at about hip height, level, and not tilted. Viewing from an angle makes the knee look more bent or straighter than it is.</li>
+      <li><b>Whole leg in view</b> from hip to foot, with good light. Tight shorts or leggings work best.</li>
+      <li>Ride in your normal shoes, on the hoods, at a steady effort. Measure the leg nearest the camera.</li>
+      <li>For a sharper result, record a slow-motion clip with the phone camera app and use <b>Analyse video</b>.</li>
+    </ol>
+    <ul>
+      <li><b>Knee bend at bottom</b> is how far the knee is still bent when the pedal is at its lowest point (0° = dead straight). Dynamic bike-fit guidelines usually aim for about <b>30–40°</b>. Below that, the saddle is likely too high. Above it, the saddle is likely too low.</li>
+      <li>Change the saddle height in small steps (3–5 mm), ride a few minutes, and measure again.</li>
+      <li>Pain, numbness, or a big difference between your legs is a job for a professional bike fitter or physio. This tool is only a guide.</li>
+    </ul>
+  </details>
+</div>
+
+<script type="module">
+const MP_VER = '0.10.14';
+const MP_BASE = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VER}`;
+const MODEL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task';
+const TARGET = { min: 30, max: 40 };   // knee flexion at bottom dead centre (degrees)
+const HYST = 15;                       // degrees of reversal needed to count a turning point
+const KEEP = 8;                        // strokes used for the median
+
+const $ = id => document.getElementById(id);
+const video = $('video'), canvas = $('canvas'), ctx = canvas.getContext('2d');
+const IDX = { left: { sh: 11, hip: 23, knee: 25, ank: 27 }, right: { sh: 12, hip: 24, knee: 26, ank: 28 } };
+
+let landmarker = null, stream = null, facing = 'environment', running = false, sidePref = 'auto';
+let lastVideoTime = -1;
+
+/* ---------- stroke analysis (exported for testing) ---------- */
+class StrokeTracker {
+  constructor() { this.reset(); }
+  reset() {
+    this.buf = []; this.dir = 1; this.curMax = -1; this.curMin = 999; this.hipAtMin = null; this.curHip = 999;
+    this.maxes = []; this.mins = []; this.hips = []; this.maxTimes = []; this.total = 0;
+  }
+  // knee: interior hip-knee-ankle angle (180 = straight), hip: shoulder-hip-knee angle, t: ms
+  push(knee, hip, t) {
+    // 3-frame median: removes single-frame glitches without flattening the peaks
+    this.buf.push(knee); if (this.buf.length > 3) this.buf.shift();
+    const a = StrokeTracker.median(this.buf);
+    // peaks use the raw angle (unless it is a glitch far from the median) so they aren't flattened
+    const pk = Math.abs(knee - a) < 8 ? knee : a;
+    if (hip != null) this.curHip = Math.min(this.curHip, hip);
+    if (this.dir > 0) {                                   // leg extending
+      if (pk > this.curMax) this.curMax = pk;
+      else if (this.curMax - a > HYST) {                  // passed bottom of the stroke
+        this.maxes.push(this.curMax); this.maxTimes.push(t); this.total++;
+        this.dir = -1; this.curMin = a; this.curHip = hip ?? 999;
+      }
+    } else {                                              // leg bending
+      if (pk < this.curMin) this.curMin = pk;
+      else if (a - this.curMin > HYST) {                  // passed top of the stroke
+        this.mins.push(this.curMin);
+        if (this.curHip < 999) this.hips.push(this.curHip);
+        this.dir = 1; this.curMax = a;
+      }
+    }
+    for (const arr of [this.maxes, this.mins, this.hips, this.maxTimes]) if (arr.length > KEEP + 1) arr.shift();
+    return a;
+  }
+  get strokes() { return this.maxes.length; }
+  static median(a) { if (!a.length) return null; const s = [...a].sort((x, y) => x - y), m = s.length >> 1;
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; }
+  summary() {
+    const ext = StrokeTracker.median(this.maxes), top = StrokeTracker.median(this.mins), hip = StrokeTracker.median(this.hips);
+    const gaps = this.maxTimes.slice(1).map((t, i) => t - this.maxTimes[i]).filter(g => g > 250 && g < 3000);
+    const per = StrokeTracker.median(gaps);
+    return { bottomFlex: ext == null ? null : 180 - ext, topFlex: top == null ? null : 180 - top,
+             hip, rpm: per ? 60000 / per : null, n: this.maxes.length };
+  }
+}
+let tracker = new StrokeTracker();
+window.StrokeTracker = StrokeTracker;
+
+function angle(a, b, c) {           // angle ABC in degrees, points in pixels
+  const v1x = a.x - b.x, v1y = a.y - b.y, v2x = c.x - b.x, v2y = c.y - b.y;
+  const cos = (v1x * v2x + v1y * v2y) / (Math.hypot(v1x, v1y) * Math.hypot(v2x, v2y));
+  return Math.acos(Math.max(-1, Math.min(1, cos))) * 180 / Math.PI;
+}
+window.kneeAngle = angle;
+
+/* ---------- model ---------- */
+async function loadModel() {
+  if (landmarker) return landmarker;
+  $('msg').textContent = 'Loading pose model (about 9 MB the first time)…';
+  const { PoseLandmarker, FilesetResolver } = await import(`${MP_BASE}/vision_bundle.mjs`);
+  const fileset = await FilesetResolver.forVisionTasks(`${MP_BASE}/wasm`);
+  const opts = d => ({ baseOptions: { modelAssetPath: MODEL, delegate: d }, runningMode: 'VIDEO', numPoses: 1,
+                       minPoseDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+  try { landmarker = await PoseLandmarker.createFromOptions(fileset, opts('GPU')); }
+  catch { landmarker = await PoseLandmarker.createFromOptions(fileset, opts('CPU')); }
+  return landmarker;
+}
+
+/* ---------- sources ---------- */
+async function startCamera() {
+  try {
+    stopSource();
+    await loadModel();
+    stream = await navigator.mediaDevices.getUserMedia({ audio: false,
+      video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 60 } } });
+    video.srcObject = stream; video.loop = false;
+    await video.play();
+    begin();
+    try { await navigator.wakeLock?.request('screen'); } catch {}
+  } catch (e) {
+    $('msg').hidden = false;
+    $('msg').textContent = e.name === 'NotAllowedError' ? 'Camera permission was refused. Allow camera access for this site and try again.'
+      : 'Could not start: ' + (e.message || e);
+  }
+}
+async function startFile(file) {
+  try {
+    stopSource();
+    await loadModel();
+    video.srcObject = null; video.src = URL.createObjectURL(file); video.loop = true;
+    video.playbackRate = 0.5;                 // slower playback = more samples per stroke
+    await video.play();
+    begin();
+  } catch (e) { $('msg').hidden = false; $('msg').textContent = 'Could not open video: ' + (e.message || e); }
+}
+function stopSource() {
+  running = false;
+  stream?.getTracks().forEach(t => t.stop()); stream = null;
+  if (video.src) { URL.revokeObjectURL(video.src); video.removeAttribute('src'); }
+}
+function begin() {
+  $('msg').hidden = true; $('live').hidden = false; $('cam').textContent = 'Restart camera';
+  tracker.reset(); lastVideoTime = -1; running = true;
+  requestAnimationFrame(loop);
+}
+
+/* ---------- per-frame loop ---------- */
+let visL = 0, visR = 0;
+function loop() {
+  if (!running) return;
+  if (video.readyState >= 2 && video.currentTime !== lastVideoTime) {
+    lastVideoTime = video.currentTime;
+    const res = landmarker.detectForVideo(video, performance.now());
+    draw(res.landmarks?.[0]);
+  }
+  requestAnimationFrame(loop);
+}
+
+function draw(lm) {
+  const w = video.videoWidth, h = video.videoHeight;
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+  ctx.clearRect(0, 0, w, h);
+  if (!lm) { $('live').textContent = 'No rider found'; return; }
+
+  const vis = i => lm[i].visibility ?? 1;
+  const sideVis = s => vis(IDX[s].hip) + vis(IDX[s].knee) + vis(IDX[s].ank);
+  visL = visL * 0.9 + sideVis('left') * 0.1; visR = visR * 0.9 + sideVis('right') * 0.1;
+  const side = sidePref !== 'auto' ? sidePref : (visL >= visR ? 'left' : 'right');
+  const I = IDX[side], P = i => ({ x: lm[i].x * w, y: lm[i].y * h });
+  const sh = P(I.sh), hip = P(I.hip), knee = P(I.knee), ank = P(I.ank);
+  const conf = Math.min(vis(I.hip), vis(I.knee), vis(I.ank));
+
+  const k = angle(hip, knee, ank), hp = angle(sh, hip, knee);
+  if (conf > 0.5) {
+    tracker.push(k, hp, performance.now());
+  }
+
+  // skeleton
+  const lw = Math.max(3, w / 200);
+  ctx.lineCap = 'round'; ctx.lineWidth = lw;
+  ctx.strokeStyle = 'rgba(255,179,92,.9)';
+  line(sh, hip); ctx.strokeStyle = conf > 0.5 ? '#ff6a1a' : '#888'; line(hip, knee); line(knee, ank);
+  for (const p of [sh, hip, knee, ank]) { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(p.x, p.y, lw * 1.6, 0, 7); ctx.fill(); }
+  ctx.font = `bold ${Math.round(w / 22)}px system-ui`; ctx.fillStyle = '#fff';
+  ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = lw;
+  const label = Math.round(180 - k) + '°'; ctx.strokeText(label, knee.x + lw * 4, knee.y); ctx.fillText(label, knee.x + lw * 4, knee.y);
+
+  $('live').textContent = conf > 0.5 ? `Knee bend ${Math.round(180 - k)}°` : 'Leg not clearly visible';
+  $('side').textContent = side === 'left' ? 'Left' : 'Right';
+  update();
+}
+function line(a, b) { ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
+
+/* ---------- results ---------- */
+function update() {
+  const s = tracker.summary(), f = v => v == null ? '–' : Math.round(v) + '°';
+  $('ext').textContent = f(s.bottomFlex); $('flex').textContent = f(s.topFlex); $('hip').textContent = f(s.hip);
+  $('strokes').textContent = tracker.total; $('rpm').textContent = s.rpm ? Math.round(s.rpm) : '–';
+  const v = $('verdict');
+  if (s.n < 6) { v.className = 'verdict'; v.innerHTML = `<h2>Measuring… ${s.n}/6 strokes</h2><p>Keep pedalling steadily.</p>`; return; }
+  const b = s.bottomFlex;
+  if (b < TARGET.min) {
+    v.className = 'verdict high';
+    v.innerHTML = `<h2>Saddle may be too high</h2><p>Your knee is bent only ${Math.round(b)}° at the bottom of the stroke (target ${TARGET.min}–${TARGET.max}°). Try lowering the saddle 3–5 mm and measure again. Rocking hips are another sign the saddle is too high.</p>`;
+  } else if (b > TARGET.max) {
+    v.className = 'verdict low';
+    v.innerHTML = `<h2>Saddle may be too low</h2><p>Your knee is bent ${Math.round(b)}° at the bottom of the stroke (target ${TARGET.min}–${TARGET.max}°). Try raising the saddle 3–5 mm and measure again. A low saddle puts extra load on the front of the knee.</p>`;
+  } else {
+    v.className = 'verdict good';
+    v.innerHTML = `<h2>Saddle height looks good</h2><p>Your knee is bent ${Math.round(b)}° at the bottom of the stroke, within the usual ${TARGET.min}–${TARGET.max}° range.</p>`;
+  }
+}
+
+/* ---------- UI ---------- */
+$('cam').onclick = startCamera;
+$('flip').onclick = () => { facing = facing === 'environment' ? 'user' : 'environment'; if (stream) startCamera(); };
+$('file').onchange = e => { const f = e.target.files[0]; if (f) startFile(f); e.target.value = ''; };
+$('reset').onclick = () => { tracker.reset(); update(); };
+document.querySelectorAll('.seg button').forEach(b => b.onclick = () => {
+  sidePref = b.dataset.side; tracker.reset();
+  document.querySelectorAll('.seg button').forEach(x => x.classList.toggle('on', x === b));
+});
+if (!navigator.mediaDevices?.getUserMedia) { $('cam').disabled = true; $('flip').disabled = true; }
+</script>
+</body>
+</html>

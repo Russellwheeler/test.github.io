@@ -26,3 +26,9 @@ Safari has no Web Bluetooth). Tap *Add to Home screen* for a full-screen app.
   You can still pair the trainer in another app as a **power/cadence source only**, if it accepts a
   second connection (e.g. ANT+), but you'll feel this app's grade, not the game's.
 - Most Tacx trainers cap the slope at about +20–25%, and only motorised models (Neo) can push you downhill.
+
+# Knee Check (`knee.html`)
+Uses the phone camera (or a recorded video) to measure your knee angle while you pedal and suggests
+whether the saddle is too high or too low. It looks for 30–40° of knee bend at the bottom of the stroke,
+a common target for video bike fits. Prop the phone side-on, level with your hips, 2–3 m away, with your whole leg in view.
+Pose detection runs on the phone (MediaPipe); no video leaves the device.
