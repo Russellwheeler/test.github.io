@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0f1115">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<title>Virtual Cog</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #181b22; --panel2: #20242d; --line: #2c313c;
+    --text: #eef1f6; --muted: #8e97a8; --accent: #ff6a1a; --accent2: #ffb35c;
+    --good: #3ecf8e; --bad: #ff5a5f; --warn: #f5c542;
+    --easy: #2b7fff; --hard: #ff6a1a;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font: 16px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body { display: flex; flex-direction: column; min-height: 100dvh;
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); overscroll-behavior: none; }
+  button { font: inherit; color: inherit; border: 0; cursor: pointer; }
+  .wrap { width: 100%; max-width: 560px; margin: 0 auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 12px; flex: 1; }
+
+  header { display: flex; align-items: center; gap: 10px; }
+  header h1 { font-size: 18px; margin: 0; flex: 1; letter-spacing: .02em; }
+  .pill { font-size: 12px; padding: 4px 10px; border-radius: 99px; background: var(--panel2); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55vw; }
+  .pill.ok { color: var(--good); } .pill.busy { color: var(--warn); } .pill.err { color: var(--bad); }
+
+  .btn { background: var(--panel2); padding: 10px 14px; border-radius: 12px; font-weight: 600; }
+  .btn.primary { background: var(--accent); color: #fff; }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .row > .btn { flex: 1; }
+
+  .gearcard { background: var(--panel); border-radius: 18px; padding: 14px 16px 12px; text-align: center; }
+  .gearlabel { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .12em; }
+  .gearnum { font-size: 84px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; margin: 4px 0 2px; }
+  .gearnum small { font-size: 22px; color: var(--muted); font-weight: 600; }
+  .ratio { color: var(--accent2); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .ticks { display: grid; grid-template-columns: repeat(24, 1fr); gap: 3px; margin-top: 12px; align-items: end; height: 34px; }
+  .ticks i { display: block; background: var(--line); border-radius: 2px; }
+  .ticks i.on { background: var(--accent); }
+  .ticks i.cur { background: #fff; }
+
+  .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .m { background: var(--panel); border-radius: 14px; padding: 10px 6px; text-align: center; }
+  .m b { display: block; font-size: 26px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .m span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+
+  .shift { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; flex: 1; min-height: 170px; }
+  .shift button { border-radius: 20px; font-size: 22px; font-weight: 800; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; user-select: none; touch-action: manipulation; transition: transform .06s, filter .06s; }
+  .shift button span { font-size: 56px; line-height: 1; }
+  .shift .easy { background: var(--easy); color: #fff; }
+  .shift .hard { background: var(--hard); color: #fff; }
+  .shift button:active, .shift button.pressed { transform: scale(.97); filter: brightness(1.2); }
+
+  .panel { background: var(--panel); border-radius: 16px; padding: 12px 14px; }
+  .grade { display: flex; align-items: center; gap: 10px; }
+  .grade label { font-size: 13px; color: var(--muted); white-space: nowrap; }
+  .grade output { font-weight: 700; min-width: 58px; text-align: right; font-variant-numeric: tabular-nums; }
+  input[type=range] { flex: 1; accent-color: var(--accent); }
+  .seg { display: flex; background: var(--panel2); border-radius: 10px; padding: 3px; }
+  .seg button { flex: 1; padding: 7px 10px; border-radius: 8px; background: transparent; color: var(--muted); font-weight: 600; font-size: 14px; }
+  .seg button.on { background: var(--bg); color: var(--text); }
+  .sub { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--muted); margin-top: 8px; flex-wrap: wrap; }
+  .sub b { color: var(--text); font-variant-numeric: tabular-nums; }
+
+  details { background: var(--panel); border-radius: 16px; padding: 4px 14px; }
+  summary { padding: 10px 0; cursor: pointer; font-weight: 600; color: var(--muted); }
+  .form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; padding-bottom: 12px; }
+  .form label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+  .form input, .form select { background: var(--panel2); border: 1px solid var(--line); color: var(--text); border-radius: 8px; padding: 8px; font: inherit; width: 100%; }
+  .form .full { grid-column: 1 / -1; }
+  .hint { font-size: 12px; color: var(--muted); margin: 0 0 12px; }
+  #log { font: 11px/1.4 ui-monospace, Menlo, monospace; color: var(--muted); max-height: 180px; overflow: auto; white-space: pre-wrap; margin: 0 0 12px; }
+  .notice { background: #3a2a10; color: #ffd9a0; border-radius: 12px; padding: 10px 12px; font-size: 14px; }
+  .notice a { color: #fff; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Virtual Cog</h1>
+    <a href="knee.html" class="pill" style="color:var(--accent2);text-decoration:none">Knee check</a>
+    <span id="status" class="pill">Not connected</span>
+  </header>
+
+  <div id="nobt" class="notice" hidden>
+    This browser can't use Bluetooth. On Android, open this page in <b>Chrome</b>. On iPhone/iPad, use the
+    <b>Bluefy</b> browser (Safari doesn't support Web Bluetooth). You can still try <b>Demo</b> mode.
+  </div>
+
+  <div class="row">
+    <button id="connect" class="btn primary">Connect trainer</button>
+    <button id="hrbtn" class="btn">+ HR strap</button>
+    <button id="demo" class="btn">Demo</button>
+  </div>
+
+  <section class="gearcard" aria-live="polite">
+    <div class="gearlabel">Virtual gear</div>
+    <div class="gearnum"><span id="gear">12</span><small> / 24</small></div>
+    <div class="ratio">ratio <span id="ratio">2.40</span> &middot; <span id="dev">—</span></div>
+    <div class="ticks" id="ticks"></div>
+  </section>
+
+  <section class="metrics">
+    <div class="m"><b id="pwr">–</b><span>Watts</span></div>
+    <div class="m"><b id="cad">–</b><span>RPM</span></div>
+    <div class="m"><b id="spd">–</b><span>km/h</span></div>
+    <div class="m"><b id="hr">–</b><span>BPM</span></div>
+  </section>
+
+  <section class="shift">
+    <button id="down" class="easy" aria-label="Shift easier"><span>−</span>Easier</button>
+    <button id="up" class="hard" aria-label="Shift harder"><span>+</span>Harder</button>
+  </section>
+
+  <section class="panel">
+    <div class="grade">
+      <label for="grade">Road grade</label>
+      <input id="grade" type="range" min="-10" max="15" step="0.5" value="0">
+      <output id="gradeOut">0.0%</output>
+    </div>
+    <div class="seg" style="margin-top:10px" role="group" aria-label="Trainer mode">
+      <button id="modeSim" class="on">SIM (smooth)</button>
+      <button id="modeErg">ERG (exact watts)</button>
+    </div>
+    <div class="sub">
+      <span>Sent: <b id="sent">—</b></span>
+      <span>Time <b id="time">0:00</b></span>
+      <span>Dist <b id="dist">0.00</b> km</span>
+    </div>
+  </section>
+
+  <details id="settings">
+    <summary>Settings</summary>
+    <div class="form">
+      <label>Rider weight (kg)<input id="s_rider" type="number" step="0.5" min="30" max="200"></label>
+      <label>Bike weight (kg)<input id="s_bike" type="number" step="0.5" min="3" max="30"></label>
+      <label>Chainring on trainer (T)<input id="s_ring" type="number" step="1" min="20" max="60"></label>
+      <label>Cog on trainer (T)<input id="s_cog" type="number" step="1" min="9" max="40"></label>
+      <label>Wheel circumference (m)<input id="s_circ" type="number" step="0.001" min="1.5" max="2.4"></label>
+      <label>Feel / resistance (%)<input id="s_feel" type="number" step="5" min="30" max="200"></label>
+      <label>CdA (m²)<input id="s_cda" type="number" step="0.01" min="0.15" max="0.6"></label>
+      <label>Rolling resistance (Crr)<input id="s_crr" type="number" step="0.0005" min="0.001" max="0.02"></label>
+      <label class="full">Protocol
+        <select id="s_proto">
+          <option value="auto">Auto (Tacx FE-C first, then FTMS)</option>
+          <option value="fec">Tacx FE-C over Bluetooth</option>
+          <option value="ftms">FTMS (Bluetooth Fitness Machine)</option>
+        </select>
+      </label>
+    </div>
+    <p class="hint">Put the chain in one gear on the trainer and leave it there; enter that chainring/cog above, or pedal steadily at 60+ rpm and tap <b>Detect gear</b>.</p>
+    <div class="row" style="margin-bottom:12px">
+      <button id="detect" class="btn">Detect gear</button>
+      <button id="reset" class="btn">Reset ride</button>
+    </div>
+    <p class="hint">Shift keys (Bluetooth keyboard / remote): ↑ → PageDown + = harder; ↓ ← PageUp − easier.</p>
+    <pre id="log"></pre>
+  </details>
+</div>
+
+<script>
+'use strict';
+/* ---------- constants ---------- */
+// 24-speed virtual cassette (gear ratio = chainring/cog equivalent), easiest -> hardest.
+const GEARS = [0.75,0.87,0.99,1.11,1.23,1.38,1.53,1.68,1.86,2.04,2.22,2.40,
+               2.61,2.82,3.03,3.24,3.49,3.74,3.99,4.24,4.54,4.84,5.14,5.49];
+const G = 9.81, RHO = 1.225;
+const CRR_TRAINER = 0.004;              // crr we tell the trainer to use in SIM mode
+const GRADE_MIN = -10, GRADE_MAX = 20;  // limits for the grade we send
+const FTMS_SVC = 0x1826, FTMS_DATA = 0x2ad2, FTMS_CP = 0x2ad9;
+const FEC_SVC = '6e40fec1-b5a3-f393-e0a9-e50e24dcca9e';
+const FEC_RX  = '6e40fec3-b5a3-f393-e0a9-e50e24dcca9e'; // write to trainer
+const FEC_TX  = '6e40fec2-b5a3-f393-e0a9-e50e24dcca9e'; // notifications from trainer
+const $ = id => document.getElementById(id);
+
+/* ---------- settings (persisted on this phone) ---------- */
+const DEFAULTS = { rider: 75, bike: 8, ring: 34, cog: 17, circ: 2.105, feel: 100,
+                   cda: 0.32, crr: 0.004, proto: 'auto', mode: 'sim', gear: 11, grade: 0 };
+const S = Object.assign({}, DEFAULTS, load());
+function load() { try { return JSON.parse(localStorage.getItem('vcog') || '{}'); } catch { return {}; } }
+function save() { try { localStorage.setItem('vcog', JSON.stringify(S)); } catch {} }
+
+/* ---------- live state ---------- */
+const live = { power: null, cad: null, speed: null, hr: null, speedAt: 0, cadAt: 0 };
+const ride = { t: 0, dist: 0, running: false };
+let trainer = null;        // active trainer driver
+let lastSent = { v: null, at: 0 };
+
+/* ---------- logging ---------- */
+function log(...a) {
+  const line = new Date().toLocaleTimeString() + '  ' + a.join(' ');
+  console.log(line);
+  const el = $('log'); el.textContent = (line + '\n' + el.textContent).slice(0, 6000);
+}
+function status(text, cls = '') { const s = $('status'); s.textContent = text; s.className = 'pill ' + cls; }
+
+/* ---------- physics ---------- */
+// Force (N) needed to ride at speed v (m/s) on the virtual road.
+function roadForce(v, gradePct) {
+  const th = Math.atan(gradePct / 100), m = S.rider + S.bike;
+  return m * G * (Math.sin(th) + S.crr * Math.cos(th)) + 0.5 * RHO * S.cda * v * v;
+}
+function physRatio() { return S.ring / S.cog; }
+
+// Work out what to send the trainer for the current gear, grade and speed.
+function computeTarget() {
+  const Gp = physRatio(), Gv = GEARS[S.gear], k = Gv / Gp, now = performance.now();
+  // physical (trainer) speed: prefer measured, else derive from cadence
+  let vp = 0;
+  if (live.speed != null && now - live.speedAt < 3000) vp = live.speed;
+  else if (live.cad != null && now - live.cadAt < 3000) vp = live.cad / 60 * Gp * S.circ;
+  const vv = vp * k;                        // speed in the virtual gear
+  const Fv = roadForce(vv, S.grade);        // force the rider would push on the virtual road
+  const feel = S.feel / 100;
+  if (S.mode === 'erg') {
+    const watts = Math.max(0, Math.min(1500, feel * Fv * vv));
+    return { kind: 'erg', value: Math.round(watts), vv, vp };
+  }
+  // SIM: same pedal torque => trainer force must be Fv * (virtual ratio / physical ratio).
+  // We give the trainer zero wind drag and known crr, so its force = m*g*(grade + crr).
+  const Ft = feel * k * Fv;
+  let g = (Ft / ((S.rider + S.bike) * G) - CRR_TRAINER) * 100;
+  g = Math.max(GRADE_MIN, Math.min(GRADE_MAX, g));
+  return { kind: 'sim', value: Math.round(g * 100) / 100, vv, vp };
+}
+
+/* ---------- byte helpers ---------- */
+const u16 = v => [v & 0xff, (v >> 8) & 0xff];
+async function writeChar(ch, bytes) {
+  const data = new Uint8Array(bytes);
+  if (ch.properties.write && ch.writeValueWithResponse) return ch.writeValueWithResponse(data);
+  if (ch.properties.writeWithoutResponse && ch.writeValueWithoutResponse) return ch.writeValueWithoutResponse(data);
+  return ch.writeValue(data);
+}
+// Serialises GATT writes and only keeps the newest pending command (no backlog).
+class Sender {
+  constructor() { this.busy = false; this.next = null; }
+  send(fn) { this.next = fn; if (!this.busy) this.pump(); }
+  async pump() {
+    this.busy = true;
+    while (this.next) { const fn = this.next; this.next = null;
+      try { await fn(); } catch (e) { log('write failed:', e.message || e); } }
+    this.busy = false;
+  }
+}
+
+/* ---------- Tacx FE-C over BLE (ANT+ FE-C pages tunnelled over a UART-style service) ---------- */
+class FecTrainer {
+  constructor(server) { this.server = server; this.name = 'FE-C'; this.tx = new Sender(); }
+  static async probe(server) { try { await server.getPrimaryService(FEC_SVC); return true; } catch { return false; } }
+  async start() {
+    const svc = await this.server.getPrimaryService(FEC_SVC);
+    this.rx = await svc.getCharacteristic(FEC_RX);
+    const notify = await svc.getCharacteristic(FEC_TX);
+    notify.addEventListener('characteristicvaluechanged', e => this.onData(e.target.value));
+    await notify.startNotifications();
+    await this.raw(this.userConfigPage());
+    await this.raw(this.page(0x32, [0xff, 0xff, 0xff, 0xff, 0x00, 127, 100])); // wind coeff 0, no wind, no draft
+  }
+  page(p, bytes) { return [p, ...bytes]; }
+  frame(payload) {
+    const msg = [0xa4, 0x09, 0x4e, 0x05, ...payload];
+    msg.push(msg.reduce((a, b) => a ^ b, 0));
+    return msg;
+  }
+  raw(payload) { return writeChar(this.rx, this.frame(payload)); }
+  userConfigPage() {
+    const w = Math.round(S.rider * 100), bw = Math.round(S.bike / 0.05);
+    const dia = S.circ / Math.PI, cm = Math.floor(dia * 100), off = Math.min(9, Math.round(dia * 1000 - cm * 10));
+    return [0x37, ...u16(w), 0xff, ((bw & 0x0f) << 4) | (off & 0x0f), (bw >> 4) & 0xff, cm, 0x00];
+  }
+  setSim(gradePct) {
+    const raw = Math.round((gradePct + 200) / 0.01), crr = Math.round(CRR_TRAINER / 5e-5);
+    this.tx.send(() => this.raw(this.page(0x33, [0xff, 0xff, 0xff, 0xff, ...u16(raw), crr])));
+  }
+  setErg(watts) { this.tx.send(() => this.raw(this.page(0x31, [0xff, 0xff, 0xff, 0xff, 0xff, ...u16(Math.round(watts * 4))]))); }
+  resendConfig() { this.tx.send(async () => { await this.raw(this.userConfigPage());
+    await this.raw(this.page(0x32, [0xff, 0xff, 0xff, 0xff, 0x00, 127, 100])); }); }
+  onData(dv) {
+    if (dv.byteLength < 12 || dv.getUint8(0) !== 0xa4) return;
+    const d = i => dv.getUint8(4 + i), now = performance.now();
+    switch (d(0)) {
+      case 0x10: { // general FE data
+        live.speed = (d(4) | (d(5) << 8)) / 1000; live.speedAt = now;
+        if (d(6) !== 0xff && d(6) > 0) live.hrTrainer = d(6);
+        break; }
+      case 0x19: { // specific trainer data
+        if (d(2) !== 0xff) { live.cad = d(2); live.cadAt = now; }
+        const p = d(5) | ((d(6) & 0x0f) << 8);
+        if (p !== 0xfff) live.power = p;
+        break; }
+    }
+  }
+}
+
+/* ---------- FTMS ---------- */
+class FtmsTrainer {
+  constructor(server) { this.server = server; this.name = 'FTMS'; this.tx = new Sender(); }
+  static async probe(server) { try { await server.getPrimaryService(FTMS_SVC); return true; } catch { return false; } }
+  async start() {
+    const svc = await this.server.getPrimaryService(FTMS_SVC);
+    this.cp = await svc.getCharacteristic(FTMS_CP);
+    this.cp.addEventListener('characteristicvaluechanged', e => {
+      const v = e.target.value;
+      if (v.getUint8(0) === 0x80 && v.getUint8(2) !== 1)
+        log('FTMS op 0x' + v.getUint8(1).toString(16) + ' result ' + v.getUint8(2));
+    });
+    await this.cp.startNotifications();
+    const data = await svc.getCharacteristic(FTMS_DATA);
+    data.addEventListener('characteristicvaluechanged', e => this.onData(e.target.value));
+    await data.startNotifications();
+    await writeChar(this.cp, [0x00]);        // request control
+    await writeChar(this.cp, [0x07]);        // start / resume
+  }
+  setSim(gradePct) {
+    const g = Math.round(gradePct * 100);
+    this.tx.send(() => writeChar(this.cp, [0x11, 0, 0, g & 0xff, (g >> 8) & 0xff,
+      Math.round(CRR_TRAINER / 0.0001), 0 /* cw: no air drag */]));
+  }
+  setErg(watts) { const w = Math.round(watts); this.tx.send(() => writeChar(this.cp, [0x05, w & 0xff, (w >> 8) & 0xff])); }
+  resendConfig() {}
+  onData(dv) {
+    const f = dv.getUint16(0, true), now = performance.now(); let i = 2;
+    if (!(f & 0x1)) { live.speed = dv.getUint16(i, true) / 360; live.speedAt = now; i += 2; } // 0.01 km/h -> m/s
+    if (f & 0x2) i += 2;
+    if (f & 0x4) { live.cad = dv.getUint16(i, true) / 2; live.cadAt = now; i += 2; }
+    if (f & 0x8) i += 2;
+    if (f & 0x10) i += 3;
+    if (f & 0x20) i += 2;
+    if (f & 0x40) { live.power = dv.getInt16(i, true); i += 2; }
+    if (f & 0x80) i += 2;
+    if (f & 0x100) i += 5;
+    if (f & 0x200) { const h = dv.getUint8(i); if (h) live.hrTrainer = h; i += 1; }
+  }
+}
+
+/* ---------- Demo trainer (no hardware) ---------- */
+class DemoTrainer {
+  constructor() { this.name = 'Demo'; this.mode = 'sim'; this.grade = 0; this.watts = 150; this.t = 0; }
+  async start() {
+    this.timer = setInterval(() => {
+      this.t += 0.25;
+      const cad = 85 + 6 * Math.sin(this.t / 7) + (Math.random() - .5) * 3;
+      const v = cad / 60 * physRatio() * S.circ, now = performance.now();
+      live.cad = cad; live.cadAt = now; live.speed = v; live.speedAt = now;
+      const p = this.mode === 'erg' ? this.watts
+        : (S.rider + S.bike) * G * (this.grade / 100 + CRR_TRAINER) * v;
+      live.power = Math.max(0, Math.round((live.power ?? p) * 0.7 + p * 0.3));
+    }, 250);
+  }
+  setSim(g) { this.mode = 'sim'; this.grade = g; }
+  setErg(w) { this.mode = 'erg'; this.watts = w; }
+  resendConfig() {}
+  stop() { clearInterval(this.timer); }
+}
+
+/* ---------- connection ---------- */
+let device = null, wantConnected = false;
+
+async function connectTrainer() {
+  if (!navigator.bluetooth) return;
+  stopDemo();
+  try {
+    status('Choosing…', 'busy');
+    device = await navigator.bluetooth.requestDevice({
+      filters: [{ services: [FEC_SVC] }, { services: [FTMS_SVC] }, { namePrefix: 'Tacx' }],
+      optionalServices: [FEC_SVC, FTMS_SVC, 'heart_rate', 'cycling_power']
+    });
+    device.addEventListener('gattserverdisconnected', onDisconnect);
+    wantConnected = true;
+    await setupTrainer();
+  } catch (e) {
+    wantConnected = false; $('connect').textContent = 'Connect trainer';
+    if (device?.gatt.connected) device.gatt.disconnect();
+    if (e.name !== 'NotFoundError') { log('connect error:', e.message); status('Connect failed', 'err'); }
+    else status('Not connected');
+  }
+}
+
+async function setupTrainer() {
+  status('Connecting ' + device.name + '…', 'busy');
+  const server = await device.gatt.connect();
+  let T = null;
+  if (S.proto !== 'ftms' && await FecTrainer.probe(server)) T = FecTrainer;
+  else if (S.proto !== 'fec' && await FtmsTrainer.probe(server)) T = FtmsTrainer;
+  if (!T) throw new Error('trainer has no FE-C or FTMS service');
+  const t = new T(server);
+  await t.start();
+  trainer = t; lastSent = { v: null, at: 0 };
+  status((device.name || 'Trainer') + ' · ' + t.name, 'ok');
+  log('connected', device.name, 'via', t.name);
+  $('connect').textContent = 'Disconnect';
+  keepAwake();
+  pushTarget(true);
+}
+
+async function onDisconnect() {
+  trainer = null;
+  if (!wantConnected) { status('Not connected'); return; }
+  log('trainer disconnected, reconnecting…');
+  for (let n = 1; n <= 8 && wantConnected; n++) {
+    status('Reconnecting (' + n + ')…', 'busy');
+    await new Promise(r => setTimeout(r, Math.min(1000 * n, 5000)));
+    try { await setupTrainer(); return; } catch (e) { log('reconnect failed:', e.message); }
+  }
+  status('Lost trainer', 'err'); $('connect').textContent = 'Connect trainer';
+}
+
+function disconnectTrainer() {
+  wantConnected = false; trainer = null;
+  if (device && device.gatt.connected) device.gatt.disconnect();
+  $('connect').textContent = 'Connect trainer'; status('Not connected');
+}
+
+async function connectHr() {
+  if (!navigator.bluetooth) return;
+  try {
+    const dev = await navigator.bluetooth.requestDevice({ filters: [{ services: ['heart_rate'] }] });
+    const svc = await (await dev.gatt.connect()).getPrimaryService('heart_rate');
+    const ch = await svc.getCharacteristic('heart_rate_measurement');
+    ch.addEventListener('characteristicvaluechanged', e => {
+      const v = e.target.value; live.hr = (v.getUint8(0) & 1) ? v.getUint16(1, true) : v.getUint8(1);
+    });
+    await ch.startNotifications();
+    $('hrbtn').textContent = '♥ ' + (dev.name || 'HR'); log('HR connected', dev.name);
+  } catch (e) { if (e.name !== 'NotFoundError') log('HR error:', e.message); }
+}
+
+function startDemo() {
+  if (trainer instanceof DemoTrainer) { stopDemo(); return; }
+  disconnectTrainer();
+  trainer = new DemoTrainer(); trainer.start();
+  status('Demo mode', 'ok'); $('demo').textContent = 'Stop demo'; log('demo started');
+  pushTarget(true);
+}
+function stopDemo() {
+  if (trainer instanceof DemoTrainer) { trainer.stop(); trainer = null; status('Not connected');
+    $('demo').textContent = 'Demo'; for (const k of ['power', 'cad', 'speed']) live[k] = null; }
+}
+
+/* ---------- control loop ---------- */
+function pushTarget(force = false) {
+  if (!trainer) return;
+  const t = computeTarget(), now = performance.now();
+  const changed = lastSent.kind !== t.kind || lastSent.v == null ||
+    Math.abs(t.value - lastSent.v) >= (t.kind === 'sim' ? 0.1 : 3);
+  if (!force && !changed && now - lastSent.at < 2000) return;
+  if (t.kind === 'sim') trainer.setSim(t.value); else trainer.setErg(t.value);
+  lastSent = { kind: t.kind, v: t.value, at: now };
+  $('sent').textContent = t.kind === 'sim' ? 'slope ' + t.value.toFixed(1) + '%' : 'ERG ' + t.value + ' W';
+}
+
+let lastTick = performance.now();
+setInterval(() => {
+  const now = performance.now(), dt = (now - lastTick) / 1000; lastTick = now;
+  const t = computeTarget();
+  if (trainer && t.vp > 0.5) { ride.t += dt; ride.dist += t.vv * dt; }
+  pushTarget();
+  render(t);
+}, 250);
+
+/* ---------- shifting ---------- */
+function shift(d) {
+  const g = Math.max(0, Math.min(GEARS.length - 1, S.gear + d));
+  if (g === S.gear) { navigator.vibrate?.([10, 40, 10]); return; }
+  S.gear = g; save();
+  navigator.vibrate?.(12);
+  renderGear();
+  pushTarget(true);
+}
+
+function bindHold(btn, d) {
+  let t1, t2;
+  const stop = () => { clearTimeout(t1); clearInterval(t2); btn.classList.remove('pressed'); };
+  btn.addEventListener('pointerdown', e => {
+    e.preventDefault(); btn.classList.add('pressed'); shift(d);
+    t1 = setTimeout(() => { t2 = setInterval(() => shift(d), 220); }, 450);
+  });
+  for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) btn.addEventListener(ev, stop);
+  btn.addEventListener('contextmenu', e => e.preventDefault());
+}
+
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input, select')) return;
+  const up = ['ArrowUp', 'ArrowRight', 'PageDown', '+', '=', 'AudioVolumeUp'];
+  const dn = ['ArrowDown', 'ArrowLeft', 'PageUp', '-', '_', 'AudioVolumeDown'];
+  if (up.includes(e.key)) { e.preventDefault(); shift(1); }
+  else if (dn.includes(e.key)) { e.preventDefault(); shift(-1); }
+});
+
+/* ---------- rendering ---------- */
+function renderGear() {
+  $('gear').textContent = S.gear + 1;
+  $('ratio').textContent = GEARS[S.gear].toFixed(2);
+  const ring = S.ring, eqCog = ring / GEARS[S.gear];
+  $('dev').textContent = '≈ ' + ring + '×' + eqCog.toFixed(1);
+  [...$('ticks').children].forEach((el, i) => {
+    el.className = i === S.gear ? 'cur' : i < S.gear ? 'on' : '';
+  });
+}
+function fmtTime(s) { s = Math.floor(s); const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, x = s % 60;
+  return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(x).padStart(2, '0'); }
+function render(t) {
+  const now = performance.now(), fresh = at => now - at < 3000;
+  $('pwr').textContent = live.power ?? '–';
+  $('cad').textContent = live.cad != null && fresh(live.cadAt) ? Math.round(live.cad) : '–';
+  $('spd').textContent = trainer && t.vp > 0 ? (t.vv * 3.6).toFixed(1) : '–';
+  $('hr').textContent = live.hr ?? live.hrTrainer ?? '–';
+  $('time').textContent = fmtTime(ride.t);
+  $('dist').textContent = (ride.dist / 1000).toFixed(2);
+}
+
+/* ---------- settings UI ---------- */
+const FIELDS = { s_rider: 'rider', s_bike: 'bike', s_ring: 'ring', s_cog: 'cog', s_circ: 'circ',
+                 s_feel: 'feel', s_cda: 'cda', s_crr: 'crr', s_proto: 'proto' };
+for (const [id, key] of Object.entries(FIELDS)) {
+  const el = $(id); el.value = S[key];
+  el.addEventListener('change', () => {
+    const v = el.tagName === 'SELECT' ? el.value : parseFloat(el.value);
+    if (el.tagName !== 'SELECT' && !isFinite(v)) { el.value = S[key]; return; }
+    S[key] = v; save(); renderGear();
+    if (['rider', 'bike', 'circ'].includes(key)) trainer?.resendConfig();
+    pushTarget(true);
+  });
+}
+
+function setMode(m) {
+  S.mode = m; save();
+  $('modeSim').classList.toggle('on', m === 'sim');
+  $('modeErg').classList.toggle('on', m === 'erg');
+  pushTarget(true);
+}
+$('modeSim').onclick = () => setMode('sim');
+$('modeErg').onclick = () => setMode('erg');
+
+$('grade').value = S.grade;
+const showGrade = () => $('gradeOut').textContent = (S.grade > 0 ? '+' : '') + S.grade.toFixed(1) + '%';
+$('grade').addEventListener('input', e => { S.grade = parseFloat(e.target.value); showGrade(); save(); pushTarget(true); });
+
+$('detect').onclick = () => {
+  const now = performance.now();
+  if (!(live.cad > 55 && live.speed > 1 && now - live.cadAt < 3000 && now - live.speedAt < 3000)) {
+    alert('Pedal steadily above 60 rpm while connected, then tap Detect gear.'); return;
+  }
+  const ratio = live.speed / (live.cad / 60 * S.circ);
+  const cog = Math.round(S.ring / ratio);
+  if (confirm(`Measured ratio ${ratio.toFixed(2)} → ${S.ring}×${cog}. Use cog ${cog}T?`)) {
+    S.cog = cog; $('s_cog').value = cog; save(); renderGear(); pushTarget(true);
+  }
+};
+$('reset').onclick = () => { ride.t = 0; ride.dist = 0; };
+
+/* ---------- screen wake lock ---------- */
+let wakeLock = null;
+async function keepAwake() { try { wakeLock = await navigator.wakeLock?.request('screen'); } catch {} }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && trainer) keepAwake(); });
+
+/* ---------- init ---------- */
+$('ticks').innerHTML = GEARS.map((r, i) => `<i style="height:${30 + 70 * i / 23}%"></i>`).join('');
+bindHold($('up'), 1); bindHold($('down'), -1);
+$('connect').onclick = () => (wantConnected ? disconnectTrainer() : connectTrainer());
+$('hrbtn').onclick = connectHr;
+$('demo').onclick = startDemo;
+if (!navigator.bluetooth) { $('nobt').hidden = false; $('connect').disabled = true; $('hrbtn').disabled = true; }
+setMode(S.mode); renderGear(); showGrade(); render(computeTarget());
+</script>
+</body>
+</html>
